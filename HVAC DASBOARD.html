@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Daily Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #f3f4f6; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        select option { padding: 4px; }
+    </style>
+</head>
+<body class="text-gray-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 text-white shadow-lg p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold tracking-wide"><i class="fa-solid fa-fan animate-spin-slow mr-2"></i> HVAC Daily Dashboard</h1>
+            <span class="text-sm bg-slate-700 px-3 py-1 rounded-full whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i> <span id="currentDateDisplay"></span></span>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+        
+        <!-- Левая колонка: Форма -->
+        <div class="glass-panel rounded-xl shadow-md p-6 h-fit">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2 text-slate-800"><i class="fa-solid fa-clipboard-list mr-2"></i> Новая проверка</h2>
+            
+            <form id="hvacForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Дата</label>
+                    <input type="date" id="dateInput" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">KKS Номер</label>
+                    <select id="kksInput" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border font-mono text-sm bg-white" required>
+                        <option value="" disabled selected>Нажми для выбора KKS...</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Оборудование / Локация</label>
+                    <input type="text" id="unitInput" placeholder="Заполнится автоматически..." class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-gray-100 text-gray-600" readonly required>
+                </div>
+
+                <!-- Новое поле: Статус оборудования -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Статус оборудования</label>
+                    <select id="statusInput" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                        <option value="Исправен (OK)">✅ Исправен (OK)</option>
+                        <option value="Ошибка (Alarm)">⚠️ Ошибка (Alarm)</option>
+                        <option value="Неисправен (Fault)">❌ Неисправен (Fault)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Давление (Bar)</label>
+                        <input type="number" step="0.1" id="pressureInput" placeholder="0.0" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Температура (°C)</label>
+                        <input type="number" step="0.1" id="tempInput" placeholder="0.0" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Состояние питания</label>
+                        <select id="powerInput" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <option value="В норме">🟢 В норме</option>
+                            <option value="Отклонение фаз">🟡 Отклонение фаз</option>
+                            <option value="Обесточено">🔴 Обесточено</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Фильтр / Испаритель</label>
+                        <select id="filterInput" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            <option value="Чистый">✨ Чистый</option>
+                            <option value="Требует мойки">🚿 Требует мойки</option>
+                            <option value="Заменен">♻️ Заменен</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-md transition duration-200 mt-6 shadow-md">
+                    <i class="fa-solid fa-plus mr-2"></i> Добавить запись
+                </button>
+            </form>
+        </div>
+
+        <!-- Правая колонка: Таблица и настройки -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div class="glass-panel rounded-xl shadow-md p-6 overflow-hidden">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl font-semibold text-slate-800"><i class="fa-solid fa-list-check mr-2"></i> Выполненные проверки</h2>
+                    <span id="recordCount" class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 rounded">0 записей</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">KKS</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">Оборудование</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">Статус</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">P (Bar)</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">T (°C)</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">Питание</th>
+                                <th class="px-3 py-3 text-left font-medium text-gray-500 uppercase">Фильтр</th>
+                                <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase"><i class="fa-solid fa-trash"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-gray-400">Нет добавленных записей</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Блок экспорта (Native Share) -->
+            <div class="glass-panel rounded-xl shadow-md p-6 border-l-4 border-blue-500 bg-blue-50/30">
+                <h2 class="text-lg font-semibold mb-2 text-gray-800"><i class="fa-brands fa-telegram text-blue-500 mr-2"></i> Быстрая отправка отчета</h2>
+                <p class="text-sm text-gray-600 mb-4">Нажми кнопку ниже. На телефоне откроется системное меню отправки (выбери Telegram или WhatsApp). На компьютере — файл будет сохранен в загрузки.</p>
+                
+                <button onclick="shareOrDownloadReport()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl transition duration-200 shadow-lg flex justify-center items-center text-lg">
+                    <i class="fa-solid fa-share-nodes mr-3 text-xl"></i> Поделиться Excel файлом
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // База данных KKS
+        const kksDatabase = [{"KKS": "XAA01EB001", "Description": "Rectifier Room Precision AC Indoor 1", "Area": "Rectifier Room"}, {"KKS": "XAA01EB002", "Description": "Rectifier Room Precision AC Indoor 2", "Area": "Rectifier Room"}, {"KKS": "XAA01EB003", "Description": "Rectifier Room Precision AC Outdoor 1", "Area": "Rectifier Room"}, {"KKS": "XAA01EB004", "Description": "Rectifier Room Precision AC Outdoor 2", "Area": "Rectifier Room"}, {"KKS": "XAA01EB005", "Description": "Rectifier Room Precision AC Outdoor 3", "Area": "Rectifier Room"}, {"KKS": "XAA01EB006", "Description": "Rectifier Room Precision AC Outdoor 4", "Area": "Rectifier Room"}, {"KKS": "XAA01EP005", "Description": "Rectifier Room Air Fan 1", "Area": "Rectifier Room"}, {"KKS": "XAA01EP006", "Description": "Rectifier Room Air Fan 2", "Area": "Rectifier Room"}, {"KKS": "XAA01EP001", "Description": "Electrolyzer Bld Air Fan 1", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP002", "Description": "Electrolyzer Bld Air Fan 2", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP003", "Description": "Electrolyzer Bld Air Fan 3", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP004", "Description": "Electrolyzer Bld Air Fan 4", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP011", "Description": "Electrolyzer Bld Air Fan 5", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP012", "Description": "Electrolyzer Bld Air Fan 6", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP013", "Description": "Electrolyzer Bld Air Fan 7", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP014", "Description": "Electrolyzer Bld Air Fan 8", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP015", "Description": "Electrolyzer Bld Air Fan 9", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP016", "Description": "Electrolyzer Bld Air Fan 10", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP017", "Description": "Electrolyzer Bld Air Fan 11", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP018", "Description": "Electrolyzer Bld Air Fan 12", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP019", "Description": "Electrolyzer Bld Air Fan 13", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP020", "Description": "Electrolyzer Bld Air Fan 14", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP021", "Description": "Electrolyzer Bld Air Fan 15", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP022", "Description": "Electrolyzer Bld Air Fan 16", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP005", "Description": "Electrolyzer Bld Explosion Door 1", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP006", "Description": "Electrolyzer Bld Explosion Door 2", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP007", "Description": "Electrolyzer Bld Explosion Door 3", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP008", "Description": "Electrolyzer Bld Explosion Door 4", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP009", "Description": "Electrolyzer Bld Explosion Door 5", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP011", "Description": "Electrolyzer Bld Explosion Door 6", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP012", "Description": "Electrolyzer Bld Explosion Door 7", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP013", "Description": "Electrolyzer Bld Explosion Door 8", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP014", "Description": "Electrolyzer Bld Explosion Door 9", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP015", "Description": "Electrolyzer Bld Explosion Door 10", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP016", "Description": "Electrolyzer Bld Explosion Door 11", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP017", "Description": "Electrolyzer Bld Explosion Door 12", "Area": "Electrolyzer Building"}, {"KKS": "XAA01DP010", "Description": "Electrolyzer Bld Explosion Door 13", "Area": "Electrolyzer Building"}, {"KKS": "XAA01EP007", "Description": "Utility Bld Air Fan 1", "Area": "Utility Building"}, {"KKS": "XAA01EP008", "Description": "Utility Bld Air Fan 2", "Area": "Utility Building"}, {"KKS": "XAA01EP009", "Description": "Utility Bld Air Fan 3", "Area": "Utility Building"}, {"KKS": "XAA01EP010", "Description": "Utility Bld Air Fan 4", "Area": "Utility Building"}, {"KKS": "XAA01EP023", "Description": "Utility Bld Air Fan 5", "Area": "Utility Building"}, {"KKS": "XAA01EP024", "Description": "Utility Bld Air Fan 6", "Area": "Utility Building"}, {"KKS": "XAA01EP025", "Description": "Utility Bld Air Fan 7", "Area": "Utility Building"}, {"KKS": "XAA01EP026", "Description": "Utility Bld Air Fan 8", "Area": "Utility Building"}, {"KKS": "XAA03EB001", "Description": "Switchgear Room Indoor Unit 1", "Area": "Switchgear Room"}, {"KKS": "XAA03EB002", "Description": "Switchgear Room Indoor Unit 2", "Area": "Switchgear Room"}, {"KKS": "XAA03EB013", "Description": "Switchgear Room Outdoor Unit 1", "Area": "Switchgear Room"}, {"KKS": "XAA03EB014", "Description": "Switchgear Room Outdoor Unit 2", "Area": "Switchgear Room"}, {"KKS": "XAA03EB015", "Description": "Switchgear Room Outdoor Unit 3", "Area": "Switchgear Room"}, {"KKS": "XAA03EB016", "Description": "Switchgear Room Outdoor Unit 4", "Area": "Switchgear Room"}, {"KKS": "XAA03EP001", "Description": "Switchgear Room Air Fan 1", "Area": "Switchgear Room"}, {"KKS": "XAA03EP002", "Description": "Switchgear Room Air Fan 2", "Area": "Switchgear Room"}, {"KKS": "XAA03EP003", "Description": "Switchgear Room Air Fan 3", "Area": "Switchgear Room"}, {"KKS": "XAA03EP004", "Description": "Switchgear Room Air Fan 4", "Area": "Switchgear Room"}, {"KKS": "XAA03EP014", "Description": "Switchgear Room Air Fan 5", "Area": "Switchgear Room"}, {"KKS": "XAA03EP015", "Description": "Switchgear Room Air Fan 6", "Area": "Switchgear Room"}, {"KKS": "XAA03EB003", "Description": "Battery Room Indoor Unit 1", "Area": "Battery Room"}, {"KKS": "XAA03EB004", "Description": "Battery Room Indoor Unit 2", "Area": "Battery Room"}, {"KKS": "XAA03EB009", "Description": "Battery Room Outdoor Unit 1", "Area": "Battery Room"}, {"KKS": "XAA03EB010", "Description": "Battery Room Outdoor Unit 2", "Area": "Battery Room"}, {"KKS": "XAA03EP005", "Description": "Battery Room Air Fan 1", "Area": "Battery Room"}, {"KKS": "XAA03EP007", "Description": "Battery Room Air Fan 2", "Area": "Battery Room"}, {"KKS": "XAA03EP008", "Description": "Battery Room Air Fan 3", "Area": "Battery Room"}, {"KKS": "XAA03EP009", "Description": "Battery Room Air Fan 4", "Area": "Battery Room"}, {"KKS": "XAA03EB005", "Description": "DC & UPS Room Indoor Unit 1", "Area": "DC & UPS"}, {"KKS": "XAA03EB006", "Description": "DC & UPS Room Indoor Unit 2", "Area": "DC & UPS"}, {"KKS": "XAA03EB011", "Description": "DC & UPS Room Outdoor Unit 1", "Area": "DC & UPS"}, {"KKS": "XAA03EB012", "Description": "DC & UPS Room Outdoor Unit 2", "Area": "DC & UPS"}, {"KKS": "XAA03EP010", "Description": "DC & UPS Room Air Fan 1", "Area": "DC & UPS"}, {"KKS": "XAA03EP011", "Description": "DC & UPS Room Air Fan 2", "Area": "DC & UPS"}, {"KKS": "XAA03EB007", "Description": "SWGR Cabinet Room Indoor Unit 1", "Area": "DC & UPS"}, {"KKS": "XAA03EB008", "Description": "SWGR Cabinet Room Indoor Unit 2", "Area": "DC & UPS"}, {"KKS": "XAA03EB017", "Description": "SWGR Cabinet Room Outdoor Unit 1", "Area": "DC & UPS"}, {"KKS": "XAA03EB018", "Description": "SWGR Cabinet Room Outdoor Unit 2", "Area": "DC & UPS"}, {"KKS": "XAA03EP012", "Description": "SWGR Cabinet Room Air Fan 1", "Area": "DC & UPS"}, {"KKS": "XAA03EP013", "Description": "SWGR Cabinet Room Air Fan 2", "Area": "DC & UPS"}, {"KKS": "XAA02EB042", "Description": "Integrated Bld Prec AC Indoor Unit 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB041", "Description": "Integrated Bld Prec AC Outdoor Unit 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB048", "Description": "Integrated Bld HRV HVAC 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB049", "Description": "Integrated Bld HRV HVAC 2", "Area": "Integrated Building"}, {"KKS": "XAA02EP001", "Description": "Integrated Bld Air Fan 1", "Area": "Integrated Building"}, {"KKS": "XAA02EP002", "Description": "Integrated Bld Air Fan 2", "Area": "Integrated Building"}, {"KKS": "XAA02EP003", "Description": "Integrated Bld Air Fan 3", "Area": "Integrated Building"}, {"KKS": "XAA02EP004", "Description": "Integrated Bld Air Fan 4", "Area": "Integrated Building"}, {"KKS": "XAA02EP005", "Description": "Integrated Bld Air Fan 5", "Area": "Integrated Building"}, {"KKS": "XAA02EP006", "Description": "Integrated Bld Air Fan 6", "Area": "Integrated Building"}, {"KKS": "XAA02EP007", "Description": "Integrated Bld Air Fan 7", "Area": "Integrated Building"}, {"KKS": "XAA02EP008", "Description": "Integrated Bld Air Fan 8", "Area": "Integrated Building"}, {"KKS": "XAA02EP009", "Description": "Integrated Bld Air Fan 9", "Area": "Integrated Building"}, {"KKS": "XAA02EP010", "Description": "Integrated Bld Air Fan 10", "Area": "Integrated Building"}, {"KKS": "XAA02EP011", "Description": "Integrated Bld Air Fan 11", "Area": "Integrated Building"}, {"KKS": "XAA02EP012", "Description": "Integrated Bld Air Fan 12", "Area": "Integrated Building"}, {"KKS": "XAA02EP013", "Description": "Integrated Bld Air Fan 13", "Area": "Integrated Building"}, {"KKS": "XAA02EP014", "Description": "Integrated Bld Air Fan 14", "Area": "Integrated Building"}, {"KKS": "XAA02EP050", "Description": "Integrated Bld Split System AC 1", "Area": "Integrated Building"}, {"KKS": "XAA02EP051", "Description": "Integrated Bld Split System AC 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB001", "Description": "Integrated Bld Split System AC 3", "Area": "Integrated Building"}, {"KKS": "XAA02EB002", "Description": "Integrated Bld Split System AC 4", "Area": "Integrated Building"}, {"KKS": "XAA02EB003", "Description": "Integrated Bld Split System AC Indoor 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB004", "Description": "Integrated Bld Split System AC Indoor 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB005", "Description": "Integrated Bld Split System AC Indoor 3", "Area": "Integrated Building"}, {"KKS": "XAA02EB006", "Description": "Integrated Bld Split System AC Indoor 4", "Area": "Integrated Building"}, {"KKS": "XAA02EB036", "Description": "Integrated Bld Split System AC Outdoor 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB037", "Description": "Integrated Bld Split System AC Outdoor 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB038", "Description": "Integrated Bld Split System AC Outdoor 3", "Area": "Integrated Building"}, {"KKS": "XAA02EB039", "Description": "Integrated Bld Split System AC Outdoor 4", "Area": "Integrated Building"}, {"KKS": "XAA02EB009", "Description": "Integrated Bld VRF AC Indoor 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB010", "Description": "Integrated Bld VRF AC Indoor 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB014", "Description": "Integrated Bld VRF AC Indoor 3", "Area": "Integrated Building"}, {"KKS": "XAA02EB015", "Description": "Integrated Bld VRF AC Indoor 4", "Area": "Integrated Building"}, {"KKS": "XAA02EB016", "Description": "Integrated Bld VRF AC Indoor 5", "Area": "Integrated Building"}, {"KKS": "XAA02EB017", "Description": "Integrated Bld VRF AC Indoor 6", "Area": "Integrated Building"}, {"KKS": "XAA02EB018", "Description": "Integrated Bld VRF AC Indoor 7", "Area": "Integrated Building"}, {"KKS": "XAA02EB019", "Description": "Integrated Bld VRF AC Indoor 8", "Area": "Integrated Building"}, {"KKS": "XAA02EB020", "Description": "Integrated Bld VRF AC Indoor 9", "Area": "Integrated Building"}, {"KKS": "XAA02EB021", "Description": "Integrated Bld VRF AC Indoor 10", "Area": "Integrated Building"}, {"KKS": "XAA02EB022", "Description": "Integrated Bld VRF AC Indoor 11", "Area": "Integrated Building"}, {"KKS": "XAA02EB023", "Description": "Integrated Bld VRF AC Indoor 12", "Area": "Integrated Building"}, {"KKS": "XAA02EB024", "Description": "Integrated Bld VRF AC Indoor 13", "Area": "Integrated Building"}, {"KKS": "XAA02EB025", "Description": "Integrated Bld VRF AC Indoor 14", "Area": "Integrated Building"}, {"KKS": "XAA02EB029", "Description": "Integrated Bld VRF AC Indoor 15", "Area": "Integrated Building"}, {"KKS": "XAA02EB030", "Description": "Integrated Bld VRF AC Indoor 16", "Area": "Integrated Building"}, {"KKS": "XAA02EB031", "Description": "Integrated Bld VRF AC Indoor 17", "Area": "Integrated Building"}, {"KKS": "XAA02EB032", "Description": "Integrated Bld VRF AC Indoor 18", "Area": "Integrated Building"}, {"KKS": "XAA02EB033", "Description": "Integrated Bld VRF AC Indoor 19", "Area": "Integrated Building"}, {"KKS": "XAA02EB034", "Description": "Integrated Bld VRF AC Indoor 20", "Area": "Integrated Building"}, {"KKS": "XAA02EB007", "Description": "Integrated Bld VRF AC Outdoor 1", "Area": "Integrated Building"}, {"KKS": "XAA02EB008", "Description": "Integrated Bld VRF AC Outdoor 2", "Area": "Integrated Building"}, {"KKS": "XAA02EB011", "Description": "Integrated Bld VRF AC Outdoor 3", "Area": "Integrated Building"}, {"KKS": "XAA02EB012", "Description": "Integrated Bld VRF AC Outdoor 4", "Area": "Integrated Building"}, {"KKS": "XAA02EB013", "Description": "Integrated Bld VRF AC Outdoor 5", "Area": "Integrated Building"}, {"KKS": "XAA02EB026", "Description": "Integrated Bld VRF AC Outdoor 6", "Area": "Integrated Building"}, {"KKS": "XAA02EB027", "Description": "Integrated Bld VRF AC Outdoor 7", "Area": "Integrated Building"}, {"KKS": "XAA02EB028", "Description": "Integrated Bld VRF AC Outdoor 8", "Area": "Integrated Building"}, {"KKS": "XAA02EB035", "Description": "Integrated Bld Air Curtain", "Area": "Integrated Building"}];
+
+        const kksSelect = document.getElementById('kksInput');
+        kksDatabase.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.KKS;
+            option.text = `${item.KKS} - ${item.Description} (${item.Area})`;
+            kksSelect.appendChild(option);
+        });
+
+        document.getElementById('dateInput').valueAsDate = new Date();
+        document.getElementById('currentDateDisplay').innerText = new Date().toLocaleDateString('ru-RU');
+
+        kksSelect.addEventListener('change', function(e) {
+            const val = e.target.value;
+            const found = kksDatabase.find(x => x.KKS === val);
+            if(found) {
+                document.getElementById('unitInput').value = `${found.Description} (${found.Area})`;
+            } else {
+                document.getElementById('unitInput').value = '';
+            }
+        });
+
+        let records = [];
+
+        document.getElementById('hvacForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const kksVal = document.getElementById('kksInput').value;
+            if (!kksVal) {
+                Swal.fire('Ошибка', 'Пожалуйста, выберите KKS номер', 'warning');
+                return;
+            }
+
+            const newRecord = {
+                "Дата": document.getElementById('dateInput').value,
+                "KKS Номер": kksVal,
+                "Оборудование": document.getElementById('unitInput').value,
+                "Статус": document.getElementById('statusInput').value,
+                "Давление фреона (Bar)": parseFloat(document.getElementById('pressureInput').value),
+                "Температура (°C)": parseFloat(document.getElementById('tempInput').value),
+                "Питание": document.getElementById('powerInput').value,
+                "Состояние Фильтра/Испарителя": document.getElementById('filterInput').value
+            };
+
+            records.push(newRecord);
+            updateTable();
+            
+            // Сброс формы (оставляем дату)
+            document.getElementById('kksInput').value = '';
+            document.getElementById('unitInput').value = '';
+            document.getElementById('statusInput').value = 'Исправен (OK)';
+            document.getElementById('pressureInput').value = '';
+            document.getElementById('tempInput').value = '';
+            
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Проверка сохранена', showConfirmButton: false, timer: 1500 });
+        });
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            document.getElementById('recordCount').innerText = `${records.length} записей`;
+            
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Нет добавленных записей</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            records.forEach((rec, index) => {
+                // Подсветка статуса
+                let statusColor = 'text-green-600';
+                if (rec["Статус"].includes("Ошибка")) statusColor = 'text-yellow-600 font-bold';
+                if (rec["Статус"].includes("Неисправен")) statusColor = 'text-red-600 font-bold';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-3 font-mono text-xs font-bold text-slate-700">${rec["KKS Номер"]}</td>
+                    <td class="px-3 py-3 font-medium text-gray-900 text-xs">${rec["Оборудование"]}</td>
+                    <td class="px-3 py-3 text-xs ${statusColor}">${rec["Статус"]}</td>
+                    <td class="px-3 py-3 text-blue-600 font-semibold">${rec["Давление фреона (Bar)"]}</td>
+                    <td class="px-3 py-3 text-red-500 font-semibold">${rec["Температура (°C)"]}</td>
+                    <td class="px-3 py-3 text-xs">${rec["Питание"]}</td>
+                    <td class="px-3 py-3 text-xs">${rec["Состояние Фильтра/Испарителя"]}</td>
+                    <td class="px-3 py-3 text-right">
+                        <button onclick="deleteRecord(${index})" class="text-red-500 hover:text-red-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteRecord(index) {
+            records.splice(index, 1);
+            updateTable();
+        }
+
+        async function shareOrDownloadReport() {
+            if (records.length === 0) {
+                Swal.fire('Внимание', 'Сначала добавьте данные проверок.', 'warning');
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(records);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Daily HVAC Check");
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            
+            const fileName = `HVAC_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const file = new File([excelBuffer], fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Отчет HVAC',
+                        text: 'Свежий ежедневный отчет проверок HVAC. Обратите внимание на статусы оборудования.'
+                    });
+                } catch (error) {
+                    downloadFileFallback(file, fileName);
+                }
+            } else {
+                downloadFileFallback(file, fileName);
+            }
+        }
+
+        function downloadFileFallback(file, fileName) {
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            Swal.fire('Файл сохранен', 'Отчет скачан на устройство. Вы можете отправить его вручную через мессенджер.', 'info');
+        }
+    </script>
+</body>
+</html>
